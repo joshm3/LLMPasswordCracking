@@ -1,3 +1,3 @@
 #!/bin/bash
 
-wget https://github.com/joshm3/ContextCrackLLM
+wget hhttps://cdn.hashmob.net/hashlists/466/466.2811.found
