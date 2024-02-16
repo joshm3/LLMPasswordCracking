@@ -1,4 +1,5 @@
 #Converts hashcat found file to plaintext only csv file
+#Usage <*.found> <*.csv>
 
 import sys
 
