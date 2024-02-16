@@ -1,6 +1,5 @@
 #Converts hashcat found file to plaintext only csv file
 
-import re
 import sys
 
 def main():
