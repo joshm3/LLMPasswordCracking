@@ -1,14 +1,74 @@
 import os
 from urllib.request import urlretrieve
-import csv
-import random
 from functools import reduce
 from password_strength import PasswordStats
 from sklearn.model_selection import train_test_split 
 import pandas as pd
+import sys
+import platform
+
+def main():
+    make_directories() #always
+
+    if (sys.argv[1] == "clear"): 
+        type = sys.argv[2]
+        if not type in ['contextless', 'domain', 'username']:
+            print("Type must be in {contextless, domain, username}")
+        clear_folder(type)
+        return
+    
+    type = sys.argv[1]
+    if not type in ['contextless', 'domain', 'username']:
+        print("Type must be in {contextless, domain, username}")
+
+    download_files(type)
+    process_files(type)
+    split_files(type)
+    analyze_folder(type)
+
+#URLS here for downloading: ()
+
+contextless = [
+    ('rockyou', 'https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt'), #14m
+    ('ignis','https://raw.githubusercontent.com/ignis-sec/Pwdb-Public/master/wordlists/ignis-10M.txt'), #10m
+    ('linkedin.found','https://cdn.hashmob.net/hashlists/1342/1342.100.found') #60m
+]
+
+domain = [
+    ('minecraft.found', 'https://cdn.hashmob.net/hashlists/466/466.2811.found'), #149k
+    ('mangatraders.found', 'https://cdn.hashmob.net/hashlists/752/752.0.found'), #619k
+    #('wattpad.found', 'https://cdn.hashmob.net/hashlists/4364/4364.3200.found'), 23 m
+    ('battlefield.found', 'https://cdn.hashmob.net/hashlists/541/541.0.found'), #420k
+    ('wanelo.found', 'https://cdn.hashmob.net/hashlists/2925/2925.0.found'), #2 m
+    ('everydayrecipes.found', 'https://cdn.hashmob.net/hashlists/134/134.0.found'), #25k
+    #('zynga.found', 'https://cdn.hashmob.net/hashlists/740/740.27200.found'), #48 m
+    ('dosportseasy.found', 'https://cdn.hashmob.net/hashlists/268/268.100.found') #45k
+]
+
+username = [
+    #'https://example.com/group3_data1.txt',
+]
+
+# Function to create directories for datasets
+def make_directories():
+    if os.path.exists("./datasets"): return
+    os.makedirs("./datasets/contextless/train")
+    os.makedirs("./datasets/contextless/test")
+    os.makedirs("./datasets/domain/train")
+    os.makedirs("./datasets/domain/test")
+    os.makedirs("./datasets/username/train")
+    os.makedirs("./datasets/username/test")
 
 # Function to download files into directories
-def download_files(urls, folderName):
+def download_files(folderName):
+    print(folderName)
+    match folderName:
+        case "contextless":
+            urls = contextless
+        case "domain":
+            urls = domain
+        case "username":
+            urls = username
     for filename, url in urls:
         downloadPath = os.path.join("datasets", folderName, filename)
         if not os.path.exists(downloadPath):
@@ -26,21 +86,20 @@ def process_files(folderName):
         print("Processing " + filename)
         
         with open(input_file, 'r', encoding='utf-8') as f_in, open(output_file, 'w', encoding='utf-8') as f_out:
-            match folderName:
-                case "contextless":
-                    f_out.write("password\n")
-                    for line in f_in:
-                        f_out.write("\"" + line.strip() + "\"\n")
-                case "domain":
-                    f_out.write("password\n")
-                    for line in f_in:
-                        f_out.write("\"" + line[line.rindex(':')+1:].strip() + "\"\n")
-                case "username":
-                    f_out.write("username, password\n")
-                    print("username not ready yet")
-                    #not sure about this one yet
-                    #for line in f_in:
-                        #writer.writerow([item.strip() for item in line.split(',')])
+            if ".txt" in filename:
+                f_out.write("password\n")
+                for line in f_in:
+                    f_out.write("\"" + line.strip() + "\"\n")
+            if ".found" in filename:
+                f_out.write("password\n")
+                for line in f_in:
+                    f_out.write("\"" + line[line.rindex(':')+1:].strip() + "\"\n")
+            if ".comb" in filename:
+                f_out.write("username, password\n")
+                print("username not ready yet")
+                #not sure about this one yet
+                #for line in f_in:
+                    #writer.writerow([item.strip() for item in line.split(',')])
 
 
 # Function to split CSV files into training and test sets
@@ -66,63 +125,32 @@ def split_files(folderName):
         Xy_test = pd.concat([X_test, y_test], axis=1)
         Xy_test.to_csv(test_file, index=False)
 
-# Function to calculate the number of rows in each CSV file
-# def count_rows(input_dirs):
-#     for input_dir in input_dirs:
-#         print(f"Counting rows in {input_dir} directory:")
-#         for filename in os.listdir(input_dir):
-#             input_file = os.path.join(input_dir, filename)
-#             with open(input_file, 'r') as f_in:
-#                 num_rows = sum(1 for row in f_in)
-#                 print(f"Number of rows in {filename}: {num_rows}")
+def analyze_folder(folderName):
+    folderPath = os.path.join("datasets", folderName)
+    for filename in os.listdir(folderPath):
+        if not ".csv" in filename: continue
+        filename = os.path.join(folderPath, filename)
+        analyze_file(filename)
 
-# # Function to calculate average password strength using functools.reduce
-# def calculate_average_password_strength(input_dirs):
-#     for input_dir in input_dirs:
-#         print(f"Calculating average password strength in {input_dir} directory:")
-#         for filename in os.listdir(input_dir):
-#             input_file = os.path.join(input_dir, filename)
-#             with open(input_file, 'r') as f_in:
-#                 passwords = [row.strip().split(',')[1] for row in f_in]  # Assuming password is the second column
-#                 if passwords:
-#                     password_strengths = [PasswordStats(password).entropy() for password in passwords]
-#                     average_strength = reduce(lambda x, y: x + y, password_strengths) / len(password_strengths)
-#                     print(f"Average password strength in {filename}: {average_strength}")
-#                 else:
-#                     print(f"No passwords found in {filename}")
+def analyze_file(fileName):
+    df = pd.read_csv(fileName)
+    length = len(df.index)
+    strengthAverage = reduce(strengthReduce, df['password']) / length
+    print(fileName + ": length=" + str(length) + " strengthAverage=" + str(strengthAverage))
 
-# URLs of files to download
-contextless = [
-    'https://example.com/group2_data1.txt',
-    'https://example.com/group2_data2.txt',
-    'https://example.com/group2_data3.txt'
-]
+def strengthReduce(arg1, arg2):
+    if isinstance(arg1, str): arg1 = PasswordStats(arg1).strength()
+    return arg1 + PasswordStats(arg2).strength()
 
-domain = [
-    ('minecraft.txt', 'https://cdn.hashmob.net/hashlists/466/466.2811.found'), #149k
-    ('mangatraders.txt', 'https://cdn.hashmob.net/hashlists/752/752.0.found'), #619k
-    #('wattpad.txt', 'https://cdn.hashmob.net/hashlists/4364/4364.3200.found'), 23 m
-    ('battlefield.txt', 'https://cdn.hashmob.net/hashlists/541/541.0.found'), #420k
-    ('wanelo.txt', 'https://cdn.hashmob.net/hashlists/2925/2925.0.found'), #2 m
-    ('everydayrecipes.txt', 'https://cdn.hashmob.net/hashlists/134/134.0.found'), #25k
-    #('zynga.txt', 'https://cdn.hashmob.net/hashlists/740/740.27200.found'), #48 m
-    ('dosportseasy.txt', 'https://cdn.hashmob.net/hashlists/268/268.100.found') #45k
-]
+def clear_folder(folderName):
+    folderPath = os.path.join("datasets", folderName)
+    trainPath = os.path.join(folderPath, "train")
+    testPath = os.path.join(folderPath, "test")
+    for path in [folderPath, trainPath, testPath]:
+        for filename in os.listdir(path):
+            filepath = os.path.join(path, filename)
+            if os.path.isdir(filepath): continue
+            os.remove(filepath)
 
-username = [
-    #'https://example.com/group3_data1.txt',
-]
-
-
-# Download files
-#download_files(urls_group1, [download_dirs[0]] * len(urls_group1))
-download_files(domain, "domain")
-#download_files(urls_group3, [download_dirs[2]] * len(urls_group3))
-
-# Process files
-process_files("domain")
-
-#split files
-split_files("domain")
-
-#analyze_files("domain")
+if __name__=="__main__": 
+    main() 
