@@ -122,11 +122,10 @@ def split_file(filename):
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
     Xy_train = pd.concat([X_train, y_train], axis=1)
-    # Xy_train.to_csv(train_file, index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
     Xy_train.to_csv(train_file, index=False, sep='\t')
 
     Xy_test = pd.concat([X_test, y_test], axis=1)
-    # Xy_test.to_csv(test_file, index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
+    Xy_test.drop_duplicates()
     Xy_test.to_csv(test_file, index=False, sep='\t')
 
 def analyze_file(filename):
