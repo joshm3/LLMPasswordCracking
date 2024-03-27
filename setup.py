@@ -1,101 +1,105 @@
+#Usage: python setup.py {contextless, domain, username} to download a type of datasets
+#                       or {clear}, {contextless, domain, username} to delete one category 
+
 import os
 from urllib.request import urlretrieve
 from functools import reduce
-from password_strength import PasswordStats
+# from zxcvbn import zxcvbn
 from sklearn.model_selection import train_test_split 
 import pandas as pd
 import sys
-import platform
+from math import isnan
+import re
+import csv
+
+delimiterChar = '\t' #because I don't think this is a valid character in a password
 
 def main():
     make_directories() #always
 
-    if (sys.argv[1] == "clear"): 
-        type = sys.argv[2]
-        if not type in ['contextless', 'domain', 'username']:
-            print("Type must be in {contextless, domain, username}")
-        clear_folder(type)
+    # Option 1: delete files -> setup.py delete {dataset name}
+    if (sys.argv[1] == "delete"):
+        deleteAll(sys.argv[2])
+        return
+
+    # Option 2: download files -> setup.py {dataset name}
+    if (sys.argv[1] in datasets):
+        filename = sys.argv[1]
+        download_file(filename)
+        process_file(filename)
+        split_file(filename)
+        analyze_file(filename)
         return
     
-    type = sys.argv[1]
-    if not type in ['contextless', 'domain', 'username']:
-        print("Type must be in {contextless, domain, username}")
-
-    download_files(type)
-    process_files(type)
-    split_files(type)
-    analyze_folder(type)
-
-#URLS here for downloading: ()
-
-contextless = [
-    ('rockyou', 'https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt'), #14m
-    ('ignis','https://raw.githubusercontent.com/ignis-sec/Pwdb-Public/master/wordlists/ignis-10M.txt'), #10m
-    ('linkedin.found','https://cdn.hashmob.net/hashlists/1342/1342.100.found') #60m
-]
-
-domain = [
-    ('minecraft.found', 'https://cdn.hashmob.net/hashlists/466/466.2811.found'), #149k
-    ('mangatraders.found', 'https://cdn.hashmob.net/hashlists/752/752.0.found'), #619k
-    #('wattpad.found', 'https://cdn.hashmob.net/hashlists/4364/4364.3200.found'), 23 m
-    ('battlefield.found', 'https://cdn.hashmob.net/hashlists/541/541.0.found'), #420k
-    ('wanelo.found', 'https://cdn.hashmob.net/hashlists/2925/2925.0.found'), #2 m
-    ('everydayrecipes.found', 'https://cdn.hashmob.net/hashlists/134/134.0.found'), #25k
-    #('zynga.found', 'https://cdn.hashmob.net/hashlists/740/740.27200.found'), #48 m
-    ('dosportseasy.found', 'https://cdn.hashmob.net/hashlists/268/268.100.found') #45k
-]
-
-username = [
-    #'https://example.com/group3_data1.txt',
-]
+    if (sys.argv[1] == "all"):
+        for filename in datasets:
+            download_file(filename)
+            process_file(filename)
+            split_file(filename)
+            analyze_file(filename)
+        return
+    
+    print("ERROR: first argument must be delete, all, or <dataset name>")
+    
+#URLS here for downloading: (hashmob downloads are much slower)
+datasets = {
+    'rockyou': ('rockyou.txt', 'https://github.com/brannondorsey/naive-hashcat/releases/download/data/rockyou.txt'), #14m
+    'ignis': ('ignis.txt','https://raw.githubusercontent.com/ignis-sec/Pwdb-Public/master/wordlists/ignis-10M.txt'), #10m
+    #'linkedin': ('linkedin.found','https://cdn.hashmob.net/hashlists/1342/1342.100.found'), #60m TAKES TOO LONG
+    'minecraft': ('minecraft.found', 'https://cdn.hashmob.net/hashlists/466/466.2811.found'), #151k
+    'mangatraders': ('mangatraders.found', 'https://cdn.hashmob.net/hashlists/752/752.0.found'), #619k
+    'battlefield': ('battlefield.found', 'https://cdn.hashmob.net/hashlists/541/541.0.found'), #420k
+    'wanelo': ('wanelo.found', 'https://cdn.hashmob.net/hashlists/2925/2925.0.found'), #2 m
+    'everydayrecipes': ('everydayrecipes.found', 'https://cdn.hashmob.net/hashlists/134/134.0.found'), #25k
+    'dosportseasy': ('dosportseasy.found', 'https://cdn.hashmob.net/hashlists/268/268.100.found'), #45k
+    #'wattpad': ('wattpad.found', 'https://cdn.hashmob.net/hashlists/4364/4364.3200.found'), #23 m TAKES TOO LONG
+    #'zynga': ('zynga.found', 'https://cdn.hashmob.net/hashlists/740/740.27200.found') #48 m TAKES TOO LONG
+}
 
 # Function to create directories for datasets
 def make_directories():
-    if os.path.exists("./datasets"): return
-    os.makedirs("./datasets/contextless/train")
-    os.makedirs("./datasets/contextless/test")
-    os.makedirs("./datasets/domain/train")
-    os.makedirs("./datasets/domain/test")
-    os.makedirs("./datasets/username/train")
-    os.makedirs("./datasets/username/test")
+    if (not os.path.exists("./datasets")): os.mkdir("./datasets")
+    if (not os.path.exists("./datasets/train")): os.mkdir("./datasets/train")
+    if (not os.path.exists("./datasets/test")): os.mkdir("./datasets/test")
+    
 
 # Function to download files into directories
-def download_files(folderName):
-    print(folderName)
-    match folderName:
-        case "contextless":
-            urls = contextless
-        case "domain":
-            urls = domain
-        case "username":
-            urls = username
-    for filename, url in urls:
-        downloadPath = os.path.join("datasets", folderName, filename)
-        if not os.path.exists(downloadPath):
-            print("Downloading " + filename)
-            urlretrieve(url, downloadPath)
+def download_file(filename):
+    downloadName, url = datasets[filename]
+    downloadPath = os.path.join("datasets", downloadName)
+    if not os.path.exists(downloadPath):
+        print("Downloading " + filename)
+        urlretrieve(url, downloadPath)
 
 # Function to process files into CSV format
-def process_files(folderName):
-    folderPath = os.path.join("datasets", folderName)
-    for filename in os.listdir(folderPath):
-        if not ".txt" in filename: continue
-        input_file = os.path.join(folderPath, filename)
-        output_file = os.path.join(folderPath, filename.replace('.txt', '.csv'))
-        if os.path.exists(output_file): continue
+def process_file(filename):
+    for file in os.listdir("./datasets"):
+        parts = file.split('.', 1)
+        if not (parts[0] == filename): continue
+        if not (parts[1] == "txt" or parts[1] == "found"): continue
+
+        input_file = os.path.join("datasets", file)
+        output_file = os.path.join("datasets", filename + ".csv")
+        if os.path.exists(output_file): return
+
         print("Processing " + filename)
         
-        with open(input_file, 'r', encoding='utf-8') as f_in, open(output_file, 'w', encoding='utf-8') as f_out:
-            if ".txt" in filename:
+        
+        if ".txt" in file:
+            with open(input_file, 'r', encoding='latin1') as f_in, open(output_file, 'w', encoding='utf-8') as f_out:
                 f_out.write("password\n")
                 for line in f_in:
-                    f_out.write("\"" + line.strip() + "\"\n")
-            if ".found" in filename:
+                    f_out.write(line.strip() + "\n") #FIX THIS!!!!!!!!!!!!!!
+        if ".found" in file:
+            with open(input_file, 'r', encoding='utf-8') as f_in, open(output_file, 'w', encoding='utf-8') as f_out:
                 f_out.write("password\n")
                 for line in f_in:
-                    f_out.write("\"" + line[line.rindex(':')+1:].strip() + "\"\n")
-            if ".comb" in filename:
-                f_out.write("username, password\n")
+                    pw = line.split(':', 2)[1].strip()
+                    if not pw == "":
+                        f_out.write(pw + "\n")
+        if ".comb" in filename:
+            with open(input_file, 'r', encoding='utf-8') as f_in, open(output_file, 'w', encoding='utf-8') as f_out:
+                f_out.write("username" + delimiterChar + "password\n")
                 print("username not ready yet")
                 #not sure about this one yet
                 #for line in f_in:
@@ -103,54 +107,64 @@ def process_files(folderName):
 
 
 # Function to split CSV files into training and test sets
-def split_files(folderName):
-    folderPath = os.path.join("datasets", folderName)
-    for filename in os.listdir(folderPath):
-        if not ".csv" in filename: continue
-        input_file = os.path.join(folderPath, filename)
-        train_file = os.path.join(folderPath, "train", filename)
-        test_file = os.path.join(folderPath, "test", filename)
-        if os.path.exists(train_file) and os.path.exists(test_file): continue
+def split_file(filename):
+    input_file = os.path.join("datasets", filename + ".csv")
+    train_file = os.path.join("datasets", "train", filename + ".csv")
+    test_file = os.path.join("datasets", "test", filename + ".csv")
 
-        print("Splitting " + filename)
-        df = pd.read_csv(input_file)
-        X = df.iloc[:, :-1]  # Features
-        y = df.iloc[:, -1]   # Labels
+    if os.path.exists(train_file) and os.path.exists(test_file): return
 
-        X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+    print("Splitting " + filename)
+    df = pd.read_csv(input_file, delimiter=delimiterChar, keep_default_na=False, quoting=csv.QUOTE_NONE)
+    X = df.iloc[:, :-1]  # Features
+    y = df.iloc[:, -1]   # Labels
 
-        Xy_train = pd.concat([X_train, y_train], axis=1)
-        Xy_train.to_csv(train_file, index=False)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
 
-        Xy_test = pd.concat([X_test, y_test], axis=1)
-        Xy_test.to_csv(test_file, index=False)
+    Xy_train = pd.concat([X_train, y_train], axis=1)
+    # Xy_train.to_csv(train_file, index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
+    Xy_train.to_csv(train_file, index=False, sep='\t')
 
-def analyze_folder(folderName):
-    folderPath = os.path.join("datasets", folderName)
-    for filename in os.listdir(folderPath):
-        if not ".csv" in filename: continue
-        filename = os.path.join(folderPath, filename)
-        analyze_file(filename)
+    Xy_test = pd.concat([X_test, y_test], axis=1)
+    # Xy_test.to_csv(test_file, index=False, quoting=csv.QUOTE_NONE, escapechar='\\')
+    Xy_test.to_csv(test_file, index=False, sep='\t')
 
-def analyze_file(fileName):
-    df = pd.read_csv(fileName)
+def analyze_file(filename):
+    print("Analyzing " + filename)
+    input_file = os.path.join("datasets", filename + ".csv")
+    df = pd.read_csv(input_file, delimiter=delimiterChar, keep_default_na=False, quoting=csv.QUOTE_NONE)
+
     length = len(df.index)
-    strengthAverage = reduce(strengthReduce, df['password']) / length
-    print(fileName + ": length=" + str(length) + " strengthAverage=" + str(strengthAverage))
+    print("length=" + str(length))
 
-def strengthReduce(arg1, arg2):
-    if isinstance(arg1, str): arg1 = PasswordStats(arg1).strength()
-    return arg1 + PasswordStats(arg2).strength()
+    #This takes a very long time on longer datasets
+    # scoreSum = 0
+    # for password in df['password']:
+    #     scoreSum += zxcvbn(password)['score']
+    # scoreAverage = scoreSum / length
+    # print("scoreAverage=" + str(scoreAverage))
 
-def clear_folder(folderName):
-    folderPath = os.path.join("datasets", folderName)
+    minLength = 99
+    minCap = 99
+    minNum = 99
+    minSpecial = 99
+    for password in df['password']:
+        if len(password) < minLength: minLength = len(password)
+        if len(re.findall(r'[A-Z]',password)) < minCap: minCap = len(re.findall(r'[A-Z]',password))
+        if len(re.findall(r'[0-9]',password)) < minNum: minNum = len(re.findall(r'[0-9]',password))
+        if len(re.findall(r'[^A-Za-z0-9]',password)) < minSpecial: minSpecial = len(re.findall(r'[^A-Za-z0-9]',password))
+    
+    print("minLength=" + str(minLength) + " minCap=" + str(minCap) + " minNum=" + str(minNum) + " minSpecial=" + str(minSpecial))
+
+def deleteAll(datasetName):
+    folderPath = os.path.join("datasets")
     trainPath = os.path.join(folderPath, "train")
     testPath = os.path.join(folderPath, "test")
     for path in [folderPath, trainPath, testPath]:
         for filename in os.listdir(path):
-            filepath = os.path.join(path, filename)
-            if os.path.isdir(filepath): continue
-            os.remove(filepath)
+            if datasetName in filename:
+                filepath = os.path.join(path, filename)
+                os.remove(filepath)
 
 if __name__=="__main__": 
     main() 

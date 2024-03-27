@@ -1,37 +1,68 @@
 #Checks to see how many passwords in the second file are guessed by the wordlist in the first file
-#Usage:   python evaluate.py <generatedList.csv> <evaluationList.csv>
+#Usage:   python evaluate.py <generatedList.csv> <testListName>
 
 #Could be improved, does not account for repeated passwords
 
 import sys
 import pandas as pd
 import sys
-from functools import reduce
-from password_strength import PasswordStats
+from zxcvbn import zxcvbn
+import os
+import csv
+
+delimiterChar = '\t'
 
 def main():
-    #fix gendf file to hasv password at top if not csv
-    if not ".csv" in sys.argv[1]: addKey(sys.argv[1])
-    genDf = pd.read_csv(sys.argv[1])
-    evalDf = pd.read_csv(sys.argv[2])
-    passwordsFound = 0
-    attempts = 0
-    totalAttemptsForSuccess = 0
+    genListPath = sys.argv[1]
+    testListName = sys.argv[2]
+    typeOfTest = "unassigned"
 
-    for password in evalDf['password']:
-        attempts = 0
+    #first search for the evaluation list given the base name ex: "minecraft"
+    for filename in os.listdir("./datasets/test"):
+        if testListName in filename:
+            testListPath = os.path.join("datasets", "test", filename)
+            typeOfTest = type
+            break
+
+    if (typeOfTest == "unassigned"): 
+        print("Error")
+        return
+
+    #fix gendf file to hasv password at top if not csv
+    if not ".csv" in genListPath: addKey(genListPath)
+    genDf = pd.read_csv(genListPath, delimiter=delimiterChar, keep_default_na=False, quoting=csv.QUOTE_NONE)
+    testDf = pd.read_csv(testListPath, delimiter=delimiterChar, keep_default_na=False, quoting=csv.QUOTE_NONE)
+    passwordsFound = 0
+
+    scoreSum = 0
+    for password in testDf['password']:
+        cracked=False
         for word in genDf['password']:
-            attempts+= 1
             if password == word:
+                scoreSum += zxcvbn(password)['score']
                 passwordsFound += 1
-                totalAttemptsForSuccess += attempts
+                cracked=True
                 break
+        if cracked==False: print(password)
     
-    avgAttemptsForSuccess = totalAttemptsForSuccess / passwordsFound
+    averageScorePasswordsFound = scoreSum / passwordsFound
+    ppc = passwordsFound / len(testDf.index) #percent of passwords cracked
+
     
-    print("Passwords found: " + str(passwordsFound) + "\tAverage attempts for success: " + str(avgAttemptsForSuccess))
-    analyze_file(sys.argv[1])
-    analyze_file(sys.argv[2])
+    # print("Results added to " + typeOfTest + "Results.csv")
+    # printResults(typeOfTest, "strategy test", testListName, ppc)
+
+    print("Passwords found: " + str(passwordsFound) + " out of " + str(len(testDf.index)))
+    print("PPC=" + str(ppc) + " AverageScoreForPasswordsFound=" + str(averageScorePasswordsFound))
+
+
+def printResults(typeOfTest, strategy, testListName, ppc):
+    df = pd.read_csv(typeOfTest + "Results.csv")
+    colName = testListName + "Ppc"
+    new_row = {'strategy': strategy, colName: ppc}  # Modify column names and values as needed
+    df = df._append(new_row, ignore_index=True)
+    print(df)
+    df.to_csv(typeOfTest + "Results.csv", index=False)
 
 
 def addKey(filename):
@@ -39,17 +70,16 @@ def addKey(filename):
         content = f.read()
         f.seek(0, 0)
         f.write("password\n" + content)
+    os.rename(filename, filename + ".csv")
 
 def analyze_file(fileName):
     df = pd.read_csv(fileName)
     length = len(df.index)
-    strengthAverage = reduce(strengthReduce, df['password']) / length
-    print(fileName + ": length=" + str(length) + " strengthAverage=" + str(strengthAverage))
-
-def strengthReduce(arg1, arg2):
-    if isinstance(arg1, str): arg1 = PasswordStats(arg1).strength()
-    return arg1 + PasswordStats(arg2).strength()
-
+    scoreSum = 0
+    for password in df['password']:
+        scoreSum += zxcvbn(password)['score']
+    scoreAverage = scoreSum / length
+    print(fileName + ": length=" + str(length) + " strengthAverage=" + str(scoreAverage))
 
 if __name__ == "__main__":
     main()
