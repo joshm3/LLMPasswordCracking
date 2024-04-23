@@ -1,12 +1,10 @@
 #Checks to see how many passwords in the second file are guessed by the wordlist in the first file
-#Usage:   python evaluate.py <generatedList.csv> <testListName>
-
-#Could be improved, does not account for repeated passwords
+#Usage:   python evaluate.py <generatedList.csv> <number of generated passwords> <testListName>
 
 import sys
 import pandas as pd
 import sys
-from zxcvbn import zxcvbn
+# from zxcvbn import zxcvbn
 import os
 import csv
 
@@ -14,72 +12,34 @@ delimiterChar = '\t'
 
 def main():
     genListPath = sys.argv[1]
-    testListName = sys.argv[2]
-    typeOfTest = "unassigned"
+    genLength = int(sys.argv[2])
+    testListPath = sys.argv[3]
 
-    #first search for the evaluation list given the base name ex: "minecraft"
-    for filename in os.listdir("./datasets/test"):
-        if testListName in filename:
-            testListPath = os.path.join("datasets", "test", filename)
-            typeOfTest = type
-            break
+    genDf = pd.read_csv(genListPath, delimiter=delimiterChar, keep_default_na=False, quoting=csv.QUOTE_NONE, names=["password"])
+    genDf.drop_duplicates()
+    uniqueLength = len(genDf.index)
+    uniquePerc = uniqueLength / genLength * 100
 
-    if (typeOfTest == "unassigned"): 
-        print("Error")
-        return
-
-    #fix gendf file to hasv password at top if not csv
-    if not ".csv" in genListPath: addKey(genListPath)
-    genDf = pd.read_csv(genListPath, delimiter=delimiterChar, keep_default_na=False, quoting=csv.QUOTE_NONE)
     testDf = pd.read_csv(testListPath, delimiter=delimiterChar, keep_default_na=False, quoting=csv.QUOTE_NONE)
-    passwordsFound = 0
+    testLength = len(testDf.index)
+    passwordsFound = len( set(genDf['password']) .intersection(set(testDf['password'])))
 
-    scoreSum = 0
-    for password in testDf['password']:
-        cracked=False
-        for word in genDf['password']:
-            if password == word:
-                scoreSum += zxcvbn(password)['score']
-                passwordsFound += 1
-                cracked=True
-                break
-        if cracked==False: print(password)
-    
-    averageScorePasswordsFound = scoreSum / passwordsFound
-    ppc = passwordsFound / len(testDf.index) #percent of passwords cracked
+    # format taken from passgpt
+    print("Number of passwords generated: {}".format(genLength))
+    print("{} unique passwords generated => {:.2f}%".format(uniqueLength, uniquePerc))
+    print("{} passwords where found in the test set. {:.5f}% of the test set guessed.".format(passwordsFound, passwordsFound/testLength*100))
 
-    
-    # print("Results added to " + typeOfTest + "Results.csv")
-    # printResults(typeOfTest, "strategy test", testListName, ppc)
+    # For measuring password strength
 
-    print("Passwords found: " + str(passwordsFound) + " out of " + str(len(testDf.index)))
-    print("PPC=" + str(ppc) + " AverageScoreForPasswordsFound=" + str(averageScorePasswordsFound))
-
-
-def printResults(typeOfTest, strategy, testListName, ppc):
-    df = pd.read_csv(typeOfTest + "Results.csv")
-    colName = testListName + "Ppc"
-    new_row = {'strategy': strategy, colName: ppc}  # Modify column names and values as needed
-    df = df._append(new_row, ignore_index=True)
-    print(df)
-    df.to_csv(typeOfTest + "Results.csv", index=False)
-
-
-def addKey(filename):
-    with open(filename, 'r+') as f:
-        content = f.read()
-        f.seek(0, 0)
-        f.write("password\n" + content)
-    os.rename(filename, filename + ".csv")
-
-def analyze_file(fileName):
-    df = pd.read_csv(fileName)
-    length = len(df.index)
-    scoreSum = 0
-    for password in df['password']:
-        scoreSum += zxcvbn(password)['score']
-    scoreAverage = scoreSum / length
-    print(fileName + ": length=" + str(length) + " strengthAverage=" + str(scoreAverage))
+    # scoreSum = 0
+    # for password in testDf['password']:
+    #     for word in genDf['password']:
+    #         if password == word:
+    #             # scoreSum += zxcvbn(password)['score']
+    #             break
+        
+    # averageScorePasswordsFound = scoreSum / passwordsFound
+    # print("PPC=" + str(ppc) + " AverageScoreForPasswordsFound=" + str(averageScorePasswordsFound))
 
 if __name__ == "__main__":
     main()
