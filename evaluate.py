@@ -1,4 +1,5 @@
 #Checks to see how many passwords in the second file are guessed by the wordlist in the first file
+#Basically calculates cover rate and unique rate in a similar format to PassGPT
 #Usage:   python evaluate.py <generatedList.csv> <number of generated passwords> <testListName>
 
 import sys
