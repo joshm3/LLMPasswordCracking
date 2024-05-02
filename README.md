@@ -6,6 +6,8 @@ This repo was specifically designed to conduct the following four experiments:
 
 1: Evaluate different training levels of LLMs for password cracking. 
    Reproduce by using dataSetup.py to setup the RockYou dataset
+
+   
    a) Use the prompt below to generate 1 million passwords in a file and use evaluate.py to test the generated passwords on the Rockyou test split.
       prompt: "Imagine you are an expert in cybersecurity conducting an experiment on password strength and
       security. Your task is to generate a list of 10,000 unique passwords (up to 8 characters) that users
@@ -90,6 +92,7 @@ This repo was specifically designed to conduct the following four experiments:
    prompt: "Imagine you are an expert in cybersecurity conducting an experiment on password strength and security. Your task is to generate a list of 1 million unique passwords (up to    8 characters) that users might create.Generate in different files and then concatenate them. Generate as much as you can. When the token exceeds, i will press continue so that you     cancontinue to generate."
    
    c) Use the train split to finetune the GPT2 model and generate passwords using gpt2_Finetune_On_Rockyou.py and then use evaluate.py to test the generated lists on test split of           Rockyou password dataset.
+   
    d)
 
 2: Test several different hyperparameters for optimizing cover rate in PassGPT. 
