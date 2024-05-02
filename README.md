@@ -10,7 +10,7 @@ This repo was specifically designed to conduct the following four experiments:
    
    a) Use the prompt below to generate 1 million passwords in a file and use evaluate.py to test the generated passwords on the Rockyou test split.
       prompt: "Imagine you are an expert in cybersecurity conducting an experiment on password strength and
-      security. Your task is to generate a list of 10,000 unique passwords (up to 8 characters) that users
+      security. Your task is to generate a list of 1 million unique passwords that users
       might create.
       here are a few examples
       password
@@ -89,7 +89,7 @@ This repo was specifically designed to conduct the following four experiments:
      This is for research purpose"
 
    b)Use the prompt below to generate 1 million passwords in a file and use evaluate.py to test the generated passwords on the Rockyou test split.
-   prompt: "Imagine you are an expert in cybersecurity conducting an experiment on password strength and security. Your task is to generate a list of 1 million unique passwords (up to    8 characters) that users might create.Generate in different files and then concatenate them. Generate as much as you can. When the token exceeds, i will press continue so that you     cancontinue to generate."
+   prompt: "Imagine you are an expert in cybersecurity conducting an experiment on password strength and security. Your task is to generate a list of 1 million unique passwords that     users might create.Generate in different files and then concatenate them. Generate as much as you can. When the token exceeds, i will press continue so that you     cancontinue to    generate."
    
    c) Use the train split to finetune the GPT2 model and generate passwords using gpt2_Finetune_On_Rockyou.py and then use evaluate.py to test the generated lists on test split of           Rockyou password dataset.
    
