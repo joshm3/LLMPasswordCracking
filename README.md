@@ -5,7 +5,7 @@ Much of the code is desined to be used along with PassGPT at https://github.com/
 This repo was specifically designed to conduct the following four experiments:
 
 1: Evaluate different training levels of LLMs for password cracking. 
-  Reproduce by... Nikita
+  Reproduce by using dataSetup.py to setup the RockYou dataset, Use the train split to finetune the GPT2 model and generate passwords using gpt2_Finetune_On_Rockyou.py and then use evaluate.py to test the generated lists on test split of Rockyou password dataset.
 
 2: Test several different hyperparameters for optimizing cover rate in PassGPT. 
   Reproduce by using dataSetup.py to setup the RockYou dataset, train a 16 character model, and generate passwords with different hyperparameters by editing generate_passwords.py.
