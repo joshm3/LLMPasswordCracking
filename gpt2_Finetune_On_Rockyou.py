@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 # coding: utf-8
 
-# In[ ]:
-
-
 import torch
 from torch.utils.data import DataLoader, Dataset
 from transformers import GPT2LMHeadModel, GPT2Tokenizer, AdamW
 from torch.nn.utils.rnn import pad_sequence
+import numpy as np
+import random
+from tqdm import tqdm
+import os
+from pathlib import Path
 
 #To Load the tokenizer
 tokenizer = GPT2Tokenizer.from_pretrained('gpt2')
@@ -64,17 +66,6 @@ tokenizer.save_pretrained('./fine_tune_gpt2')
 
 print("Model training complete and saved.")
 
-
-# In[1]:
-
-
-import torch
-from transformers import GPT2LMHeadModel, GPT2Tokenizer
-import numpy as np
-import random
-from tqdm import tqdm
-import os
-from pathlib import Path
 
 def check_model_parameters(model):
     for param in model.parameters():
@@ -133,7 +124,7 @@ if __name__ == "__main__":
         exit(1)
 
     #Output path and file
-    out_path = "./generated_passwords1"
+    out_path = "./generated_passwords"
     filename = "passwords.txt"
     Path(out_path).mkdir(parents=True, exist_ok=True)
     
@@ -141,23 +132,4 @@ if __name__ == "__main__":
         generate_passwords(model, tokenizer, device, num_generate, batch_size, max_length, temperature, top_k, top_p, f)
 
     print(f"Generated {num_generate} passwords and saved to '{os.path.join(out_path, filename)}'")
-
-
-# In[ ]:
-
-
-def display_cuda_memory():    
-    print("\n--------------------------------------------------\n")
-    print("torch.cuda.memory_allocated: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
-    print("torch.cuda.memory_reserved: %fGB"%(torch.cuda.memory_reserved(0)/1024/1024/1024))
-    print("torch.cuda.max_memory_reserved: %fGB"%(torch.cuda.max_memory_reserved(0)/1024/1024/1024))
-    print("\n--------------------------------------------------\n")
-display_cuda_memory()
-
-
-# In[ ]:
-
-
-import torch
-torch.cuda.empty_cache()
 
